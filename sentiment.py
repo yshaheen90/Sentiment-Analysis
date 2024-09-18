@@ -1,56 +1,31 @@
-import sys
-print("Python interpreter in use:", sys.executable)
-
-
-# Sentiment Analysis in Python using TextBlob and NLTK's VADER
-
-# Import necessary libraries
-
+import streamlit as st
 import pandas as pd
 from textblob import TextBlob
-import nltk
+import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# Download NLTK data (only need to do this once)
-nltk.download('punkt')
-nltk.download('vader_lexicon')
+# Set up the path to the local VADER lexicon file
+lexicon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'lexicons', 'vader_lexicon.txt'))
 
-# Sample data - You can replace this with your own data
-data = {
-    'text': [
-        'ZAID IS ERY ANGRY BUR OPTIMISTIC.',
-        'RAMI IS SO HAPPY AND LOVES LOGISTICS',
-        'I am feeling okay about this.',
-        'Absolutely fantastic! Exceeded my expectations.',
-        'Not great, not terrible.',
-        'I hate this so much!',
-        'Best purchase ever.',
-        'I am not sure how I feel about this.',
-        'Could be better, could be worse.',
-        'This is utterly disappointing.'
-    ]
-}
+# Debugging: Check if the lexicon file exists and log it
+if os.path.exists(lexicon_path):
+    st.write(f"Lexicon file found at: {lexicon_path}")
+else:
+    st.error(f"Lexicon file not found. Expected path: {lexicon_path}")
+    st.stop()  # Stop execution if the file is not found
 
-# Create a DataFrame from the sample data
-df = pd.DataFrame(data)
+# Initialize the VADER sentiment analyzer with the local lexicon file
+try:
+    sia = SentimentIntensityAnalyzer(lexicon_file=lexicon_path)
+except LookupError as e:
+    st.error(f"Error loading VADER lexicon: {str(e)}. Please check the file path.")
+    st.stop()
 
-# Display the DataFrame
-print("Original Data:")
-print(df)
-print("\n")
-
-# --- Sentiment Analysis using TextBlob ---
-
-# Function to get sentiment polarity using TextBlob
+# Functions for Sentiment Analysis
 def get_textblob_sentiment(text):
     blob = TextBlob(text)
-    # Polarity ranges from -1 (negative) to 1 (positive)
     return blob.sentiment.polarity
 
-# Apply the function to get polarity scores
-df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
-
-# Function to categorize sentiment based on polarity
 def categorize_textblob_sentiment(polarity):
     if polarity > 0:
         return 'Positive'
@@ -59,24 +34,10 @@ def categorize_textblob_sentiment(polarity):
     else:
         return 'Neutral'
 
-# Apply the categorization function
-df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
-
-# --- Sentiment Analysis using NLTK's VADER ---
-
-# Initialize the VADER sentiment analyzer
-sia = SentimentIntensityAnalyzer()
-
-# Function to get compound sentiment score using VADER
 def get_vader_sentiment(text):
     sentiment = sia.polarity_scores(text)
-    # Compound score ranges from -1 (negative) to 1 (positive)
     return sentiment['compound']
 
-# Apply the function to get compound scores
-df['vader_compound'] = df['text'].apply(get_vader_sentiment)
-
-# Function to categorize sentiment based on compound score
 def categorize_vader_sentiment(compound):
     if compound >= 0.05:
         return 'Positive'
@@ -85,10 +46,60 @@ def categorize_vader_sentiment(compound):
     else:
         return 'Neutral'
 
-# Apply the categorization function
-df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
+# Streamlit App
+st.title("Sentiment Analysis App")
+st.write("Enter text or upload a CSV file to analyze sentiment.")
 
-# --- Display the Results ---
+# Sidebar for navigation
+option = st.sidebar.selectbox('Choose Input Method', ('Type Text', 'Upload CSV'))
 
-print("Sentiment Analysis Results:")
-print(df[['text', 'textblob_polarity', 'textblob_sentiment', 'vader_compound', 'vader_sentiment']])
+if option == 'Type Text':
+    user_input = st.text_area("Enter your text here:")
+    if st.button("Analyze"):
+        if user_input:
+            # Create a DataFrame
+            df = pd.DataFrame({'text': [user_input]})
+
+            # Apply Sentiment Analysis
+            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
+            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
+            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
+            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
+
+            # Display Results
+            st.write("**Sentiment Analysis Results:**")
+            st.table(df[['text', 'textblob_polarity', 'textblob_sentiment', 'vader_compound', 'vader_sentiment']])
+        else:
+            st.warning("Please enter some text.")
+elif option == 'Upload CSV':
+    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    if uploaded_file is not None:
+        # Read the CSV file
+        df = pd.read_csv(uploaded_file)
+        if 'text' in df.columns:
+            # Apply Sentiment Analysis
+            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
+            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
+            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
+            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
+
+            # Display Results
+            st.write("**Sentiment Analysis Results:**")
+            st.dataframe(df)
+
+            # Option to download the results
+            @st.cache_data
+            def convert_df(df):
+                return df.to_csv(index=False).encode('utf-8')
+
+            csv = convert_df(df)
+            st.download_button(
+                label="Download data as CSV",
+                data=csv,
+                file_name='sentiment_analysis_results.csv',
+                mime='text/csv',
+            )
+        else:
+            st.warning("The CSV file must contain a 'text' column.")
+    else:
+        st.info("Awaiting for CSV file to be uploaded.")
