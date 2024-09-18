@@ -47,7 +47,7 @@ def categorize_vader_sentiment(compound):
         return 'Neutral'
 
 # Streamlit App
-st.title("Sentiment Analysis App")
+st.title("Sentiment Analysis App FOR ZAIDER and RAMI")
 st.write("Enter text or upload a CSV file to analyze sentiment.")
 
 # Sidebar for navigation
