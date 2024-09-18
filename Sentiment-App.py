@@ -1,13 +1,25 @@
-# sentiment_app.py
-
 import streamlit as st
 import pandas as pd
 from textblob import TextBlob
-import nltk
+import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# Initialize the VADER sentiment analyzer
-sia = SentimentIntensityAnalyzer()
+# Set up the path to the local VADER lexicon file
+lexicon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'lexicons', 'vader_lexicon.txt'))
+
+# Debugging: Check if the lexicon file exists and log it
+if os.path.exists(lexicon_path):
+    st.write(f"Lexicon file found at: {lexicon_path}")
+else:
+    st.error(f"Lexicon file not found. Expected path: {lexicon_path}")
+    st.stop()  # Stop execution if the file is not found
+
+# Initialize the VADER sentiment analyzer with the local lexicon file
+try:
+    sia = SentimentIntensityAnalyzer(lexicon_file=lexicon_path)
+except LookupError as e:
+    st.error(f"Error loading VADER lexicon: {str(e)}. Please check the file path.")
+    st.stop()
 
 # Functions for Sentiment Analysis
 def get_textblob_sentiment(text):
@@ -47,13 +59,13 @@ if option == 'Type Text':
         if user_input:
             # Create a DataFrame
             df = pd.DataFrame({'text': [user_input]})
-            
+
             # Apply Sentiment Analysis
             df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
             df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
             df['vader_compound'] = df['text'].apply(get_vader_sentiment)
             df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
-            
+
             # Display Results
             st.write("**Sentiment Analysis Results:**")
             st.table(df[['text', 'textblob_polarity', 'textblob_sentiment', 'vader_compound', 'vader_sentiment']])
@@ -70,11 +82,11 @@ elif option == 'Upload CSV':
             df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
             df['vader_compound'] = df['text'].apply(get_vader_sentiment)
             df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
-            
+
             # Display Results
             st.write("**Sentiment Analysis Results:**")
             st.dataframe(df)
-            
+
             # Option to download the results
             @st.cache_data
             def convert_df(df):
