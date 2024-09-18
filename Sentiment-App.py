@@ -9,7 +9,7 @@ lexicon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'lexicons
 
 # Debugging: Check if the lexicon file exists and log it
 if os.path.exists(lexicon_path):
-    st.write(f"Lexicon file found at: {lexicon_path}")
+    st.write(f"TIME TO PLAY PLAY PLAY RAMI AND ZAID")
 else:
     st.error(f"Lexicon file not found. Expected path: {lexicon_path}")
     st.stop()  # Stop execution if the file is not found
@@ -47,7 +47,7 @@ def categorize_vader_sentiment(compound):
         return 'Neutral'
 
 # Streamlit App
-st.title("Sentiment Analysis App")
+st.title("Sentiment APP FOR RAMI AND ZAID TO PLAY")
 st.write("Enter text or upload a CSV file to analyze sentiment.")
 
 # Sidebar for navigation
