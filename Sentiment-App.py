@@ -1,75 +1,74 @@
 import streamlit as st
 import pandas as pd
 from textblob import TextBlob
-from transformers import pipeline
+import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# Initialize VADER sentiment analyzer
-sia = SentimentIntensityAnalyzer()
+# Set up the path to the local VADER lexicon file
+lexicon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'lexicons', 'vader_lexicon.txt'))
 
-# Initialize Hugging Face sentiment analysis pipeline
-sentiment_pipeline = pipeline('sentiment-analysis')
+# Debugging: Check if the lexicon file exists and log it
+if os.path.exists(lexicon_path):
+    st.write(f"Lexicon file found at: {lexicon_path}")
+else:
+    st.error(f"Lexicon file not found. Expected path: {lexicon_path}")
+    st.stop()  # Stop execution if the file is not found
 
-# Function for TextBlob sentiment analysis
+# Initialize the VADER sentiment analyzer with the local lexicon file
+try:
+    sia = SentimentIntensityAnalyzer(lexicon_file=lexicon_path)
+except LookupError as e:
+    st.error(f"Error loading VADER lexicon: {str(e)}. Please check the file path.")
+    st.stop()
+
+# Functions for Sentiment Analysis
 def get_textblob_sentiment(text):
     blob = TextBlob(text)
     return blob.sentiment.polarity
 
-# Function for VADER sentiment analysis
+def categorize_textblob_sentiment(polarity):
+    if polarity > 0:
+        return 'Positive'
+    elif polarity < 0:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
 def get_vader_sentiment(text):
     sentiment = sia.polarity_scores(text)
     return sentiment['compound']
 
-# Function for Hugging Face sentiment analysis
-def get_transformer_sentiment(text):
-    result = sentiment_pipeline(text)[0]
-    # Return 1 for positive and -1 for negative, scaled for averaging later
-    return 1 if result['label'] == 'POSITIVE' else -1
-
-# Function to aggregate sentiment scores with weights
-def aggregate_sentiment(text):
-    textblob_score = get_textblob_sentiment(text)
-    vader_score = get_vader_sentiment(text)
-    transformer_score = get_transformer_sentiment(text)
-    
-    # Assign weightage (e.g., TextBlob and VADER have higher weights)
-    textblob_weight = 0.4
-    vader_weight = 0.4
-    transformer_weight = 0.2
-    
-    # Calculate weighted average
-    final_score = (textblob_weight * textblob_score +
-                   vader_weight * vader_score +
-                   transformer_weight * transformer_score)
-    
-    # Categorize final sentiment
-    if final_score > 0.05:
-        return final_score, "Positive"
-    elif final_score < -0.05:
-        return final_score, "Negative"
+def categorize_vader_sentiment(compound):
+    if compound >= 0.05:
+        return 'Positive'
+    elif compound <= -0.05:
+        return 'Negative'
     else:
-        return final_score, "Neutral"
+        return 'Neutral'
 
 # Streamlit App
-st.title("Weighted Sentiment Analysis App FOR RAMI AND ZAID")
-st.write("Enter text or upload a CSV file to analyze sentiment with weighted models.")
+st.title("Sentiment Analysis App")
+st.write("Enter text or upload a CSV file to analyze sentiment.")
 
 # Sidebar for navigation
 option = st.sidebar.selectbox('Choose Input Method', ('Type Text', 'Upload CSV'))
 
 if option == 'Type Text':
     user_input = st.text_area("Enter your text here:")
-    if st.button("TEST ME OUT"):
+    if st.button("Analyze"):
         if user_input:
             # Create a DataFrame
             df = pd.DataFrame({'text': [user_input]})
 
             # Apply Sentiment Analysis
-            df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
+            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
+            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
+            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
+            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
 
             # Display Results
-            st.write("**Sentiment Analysis Results (with weighting):**")
-            st.table(df[['text', 'final_score', 'final_sentiment']])
+            st.write("**Sentiment Analysis Results:**")
+            st.table(df[['text', 'textblob_polarity', 'textblob_sentiment', 'vader_compound', 'vader_sentiment']])
         else:
             st.warning("Please enter some text.")
 elif option == 'Upload CSV':
@@ -79,10 +78,13 @@ elif option == 'Upload CSV':
         df = pd.read_csv(uploaded_file)
         if 'text' in df.columns:
             # Apply Sentiment Analysis
-            df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
+            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
+            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
+            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
+            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
 
             # Display Results
-            st.write("**Sentiment Analysis Results (with weighting):**")
+            st.write("**Sentiment Analysis Results:**")
             st.dataframe(df)
 
             # Option to download the results
@@ -94,7 +96,7 @@ elif option == 'Upload CSV':
             st.download_button(
                 label="Download data as CSV",
                 data=csv,
-                file_name='weighted_sentiment_analysis_results.csv',
+                file_name='sentiment_analysis_results.csv',
                 mime='text/csv',
             )
         else:
