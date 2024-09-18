@@ -51,7 +51,7 @@ def aggregate_sentiment(text):
         return final_score, "Neutral"
 
 # Streamlit App
-st.title("Weighted Sentiment Analysis App")
+st.title("Weighted Sentiment Analysis App FOR RAMI AND ZAID")
 st.write("Enter text or upload a CSV file to analyze sentiment with weighted models.")
 
 # Sidebar for navigation
@@ -59,7 +59,7 @@ option = st.sidebar.selectbox('Choose Input Method', ('Type Text', 'Upload CSV')
 
 if option == 'Type Text':
     user_input = st.text_area("Enter your text here:")
-    if st.button("Analyze"):
+    if st.button("TEST ME OUT"):
         if user_input:
             # Create a DataFrame
             df = pd.DataFrame({'text': [user_input]})
