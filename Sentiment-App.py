@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from textblob import TextBlob
 import os
+from transformers import pipeline
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # Set up the path to the local VADER lexicon file
@@ -20,6 +21,9 @@ try:
 except LookupError as e:
     st.error(f"Error loading VADER lexicon: {str(e)}. Please check the file path.")
     st.stop()
+
+# Initialize Hugging Face sentiment analysis pipeline (e.g., distilbert-based model)
+sentiment_pipeline = pipeline('sentiment-analysis')
 
 # Functions for Sentiment Analysis
 def get_textblob_sentiment(text):
@@ -46,9 +50,44 @@ def categorize_vader_sentiment(compound):
     else:
         return 'Neutral'
 
+# Function for GPT/Transformer sentiment analysis
+def get_transformer_sentiment(text):
+    result = sentiment_pipeline(text)[0]
+    # Return 1 for positive, -1 for negative, 0 for neutral
+    return 1 if result['label'] == 'POSITIVE' else -1
+
+# Aggregating the results with higher weight for VADER and TextBlob
+def aggregate_sentiment(text):
+    # If "Palestine" is mentioned, trigger popup and override positivity score
+    if "Palestine" in text:
+        st.success("Long Live Palestine!")
+        return 1000000000000, "Positive"
+
+    textblob_score = get_textblob_sentiment(text)
+    vader_score = get_vader_sentiment(text)
+    transformer_score = get_transformer_sentiment(text)
+
+    # Assign weightage (e.g., higher for VADER and TextBlob)
+    textblob_weight = 0.4
+    vader_weight = 0.4
+    transformer_weight = 0.2
+
+    # Calculate weighted average
+    final_score = (textblob_weight * textblob_score +
+                   vader_weight * vader_score +
+                   transformer_weight * transformer_score)
+
+    # Categorize final sentiment
+    if final_score > 0.05:
+        return final_score, "Positive"
+    elif final_score < -0.05:
+        return final_score, "Negative"
+    else:
+        return final_score, "Neutral"
+
 # Streamlit App
-st.title("Sentiment Analysis App FOR ZAIDER and RAMI")
-st.write("Enter text or upload a CSV file to analyze sentiment.")
+st.title("Weighted Sentiment Analysis App")
+st.write("Enter text or upload a CSV file to analyze sentiment with weighted models.")
 
 # Sidebar for navigation
 option = st.sidebar.selectbox('Choose Input Method', ('Type Text', 'Upload CSV'))
@@ -61,14 +100,11 @@ if option == 'Type Text':
             df = pd.DataFrame({'text': [user_input]})
 
             # Apply Sentiment Analysis
-            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
-            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
-            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
-            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
+            df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
 
             # Display Results
-            st.write("**Sentiment Analysis Results:**")
-            st.table(df[['text', 'textblob_polarity', 'textblob_sentiment', 'vader_compound', 'vader_sentiment']])
+            st.write("**Sentiment Analysis Results (with Palestine Rule):**")
+            st.table(df[['text', 'final_score', 'final_sentiment']])
         else:
             st.warning("Please enter some text.")
 elif option == 'Upload CSV':
@@ -78,13 +114,10 @@ elif option == 'Upload CSV':
         df = pd.read_csv(uploaded_file)
         if 'text' in df.columns:
             # Apply Sentiment Analysis
-            df['textblob_polarity'] = df['text'].apply(get_textblob_sentiment)
-            df['textblob_sentiment'] = df['textblob_polarity'].apply(categorize_textblob_sentiment)
-            df['vader_compound'] = df['text'].apply(get_vader_sentiment)
-            df['vader_sentiment'] = df['vader_compound'].apply(categorize_vader_sentiment)
+            df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
 
             # Display Results
-            st.write("**Sentiment Analysis Results:**")
+            st.write("**Sentiment Analysis Results (with Palestine Rule):**")
             st.dataframe(df)
 
             # Option to download the results
@@ -96,7 +129,7 @@ elif option == 'Upload CSV':
             st.download_button(
                 label="Download data as CSV",
                 data=csv,
-                file_name='sentiment_analysis_results.csv',
+                file_name='weighted_sentiment_analysis_results.csv',
                 mime='text/csv',
             )
         else:
