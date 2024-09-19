@@ -10,7 +10,7 @@ lexicon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'lexicons
 
 # Debugging: Check if the lexicon file exists and log it
 if os.path.exists(lexicon_path):
-    st.write(f"Lexicon file found at: {lexicon_path}")
+    st.write(f"The first Arab Sentiment Bot")
 else:
     st.error(f"Lexicon file not found. Expected path: {lexicon_path}")
     st.stop()  # Stop execution if the file is not found
@@ -58,9 +58,12 @@ def get_transformer_sentiment(text):
 
 # Aggregating the results with higher weight for VADER and TextBlob
 def aggregate_sentiment(text):
-    # If "Palestine" is mentioned, trigger popup and override positivity score
-    if "Palestine" in text:
-        st.success("Long Live Palestine!")
+    # Convert text to lowercase to make it case-insensitive
+    lower_text = text.lower()
+    
+    # If "Palestine" or "Israel" is mentioned, trigger popup and override positivity score
+    if "palestine" in lower_text or "israel" in lower_text:
+        st.success("Long Live Palestine!" if "palestine" in lower_text else "Long Live PALESTINE!")
         return 1000000000000, "Positive"
 
     textblob_score = get_textblob_sentiment(text)
@@ -86,7 +89,7 @@ def aggregate_sentiment(text):
         return final_score, "Neutral"
 
 # Streamlit App
-st.title("Weighted Sentiment Analysis App")
+st.title("The app for Rami and Zaid")
 st.write("Enter text or upload a CSV file to analyze sentiment with weighted models.")
 
 # Sidebar for navigation
@@ -103,7 +106,7 @@ if option == 'Type Text':
             df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
 
             # Display Results
-            st.write("**Sentiment Analysis Results (with Palestine Rule):**")
+            st.write("**Sentiment Analysis Results (with Palestine/Israel Rule):**")
             st.table(df[['text', 'final_score', 'final_sentiment']])
         else:
             st.warning("Please enter some text.")
@@ -117,7 +120,7 @@ elif option == 'Upload CSV':
             df['final_score'], df['final_sentiment'] = zip(*df['text'].apply(aggregate_sentiment))
 
             # Display Results
-            st.write("**Sentiment Analysis Results (with Palestine Rule):**")
+            st.write("**Sentiment Analysis Results (with Palestine/Israel Rule):**")
             st.dataframe(df)
 
             # Option to download the results
